@@ -46,9 +46,9 @@ class BertSentimentClassifier(torch.nn.Module):
 
         ### TODO
         # dropout layer
-        self.dropout = nn.Dropout(config.hidden_dropout_prob)
+        self.dropout = torch.nn.Dropout(config.hidden_dropout_prob)
         # linear layer
-        self.linear = nn.Linear(self.bert.all_head_size, self.num_labels) # not sure if num_labels is a number or a list
+        self.linear = torch.nn.Linear(self.bert.all_head_size, self.num_labels) # not sure if num_labels is a number or a list
 
 
     def forward(self, input_ids, attention_mask):
