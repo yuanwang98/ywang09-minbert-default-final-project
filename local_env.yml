@@ -1,0 +1,19 @@
+name: cs224n_dfp
+channels:
+  - pytorch
+  - defaults
+dependencies:
+  - python=3.8
+  - pytorch
+  - torchvision
+  - torchaudio
+  - chardet
+  - pip
+  - pip:
+    - tqdm
+    - requests
+    - importlib-metadata
+    - filelock
+    - scikit-learn
+    - tokenizers
+    - explainaboard_client
