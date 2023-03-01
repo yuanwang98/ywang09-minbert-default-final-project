@@ -59,7 +59,36 @@ class AdamW(Optimizer):
                 #    (incorporating the learning rate again).
 
                 ### TODO
-                raise NotImplementedError
+                # Access more hyperparameters from the `group` dictionary
+                beta1, beta2 = group["betas"]
+                eps = group["eps"]
+                weight_decay = group["weight_decay"]
+
+                # Initialize the state for the current parameter if necessary
+                if len(state) == 0:
+                    state['t'] = 0
+                    state['m'] = torch.zeros_like(p.data)
+                    state['v'] = torch.zeros_like(p.data)
+                
+                # Update t, m, v, and update state
+                state['t'] += 1
+                t = state['t']
+                m = state['m']
+                v = state['v']
+                m = m.mul(beta1).add(grad.mul(1 - beta1))
+                v = v.mul(beta2).add(grad.mul(grad.mul(1-beta2)))
+                state['m'] = m
+                state['v'] = v
+
+                # Apply bias correction
+                alpha_t = alpha * math.sqrt(1 - beta2 ** t) / (1 - beta1 ** t)
+
+                # Update parameters
+                p.data -= m.mul(alpha_t).div(v.sqrt().add(eps))
+
+                # Update parameters using weight decay
+                p.data -= weight_decay * alpha * p.data
+
 
 
         return loss
