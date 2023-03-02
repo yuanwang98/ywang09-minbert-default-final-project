@@ -62,7 +62,9 @@ class MultitaskBERT(nn.Module):
         # similarity layers
         self.similarity_dropout_1 = torch.nn.Dropout(config.hidden_dropout_prob)
         self.similarity_dropout_2 = torch.nn.Dropout(config.hidden_dropout_prob)
-        self.similarity_linear = torch.nn.Linear(2 * BERT_HIDDEN_SIZE, 1)
+        self.similarity_linear_1 = torch.nn.Linear(BERT_HIDDEN_SIZE, BERT_HIDDEN_SIZE)
+        self.similarity_linear_2 = torch.nn.Linear(BERT_HIDDEN_SIZE, BERT_HIDDEN_SIZE)
+        self.similarity_linear_interact = torch.nn.Linear(BERT_HIDDEN_SIZE, 1)
 
 
 
@@ -104,7 +106,8 @@ class MultitaskBERT(nn.Module):
         output_2 = self.forward(input_ids_2, attention_mask_2)
         output_1 = self.paraphrase_dropout_1(output_1)
         output_2 = self.paraphrase_dropout_2(output_2)
-        output = torch.cat((output_1, output_2), -1)
+        output = output_1.mul(output_2)
+        paraphrase_logit = self.similarity_linear_interact(output)
         paraphrase_logit = self.paraphrase_linear(output)
         
         return paraphrase_logit
@@ -122,6 +125,8 @@ class MultitaskBERT(nn.Module):
         output_2 = self.forward(input_ids_2, attention_mask_2)
         output_1 = self.similarity_dropout_1(output_1)
         output_2 = self.similarity_dropout_2(output_2)
+        output_1 = self.similarity_linear_1(output_1)
+        output_2 = self.similarity_linear_2(output_2)
         output = torch.cat((output_1, output_2), -1)
         similarity_logit = self.similarity_linear(output)
 
