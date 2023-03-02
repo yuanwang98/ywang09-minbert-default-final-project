@@ -58,7 +58,9 @@ class MultitaskBERT(nn.Module):
         # paraphrase layers
         self.paraphrase_dropout_1 = torch.nn.Dropout(config.hidden_dropout_prob)
         self.paraphrase_dropout_2 = torch.nn.Dropout(config.hidden_dropout_prob)
-        self.paraphrase_linear = torch.nn.Linear(2 * BERT_HIDDEN_SIZE, 1)
+        self.paraphrase_linear_1 = torch.nn.Linear(BERT_HIDDEN_SIZE, BERT_HIDDEN_SIZE)
+        self.paraphrase_linear_2 = torch.nn.Linear(BERT_HIDDEN_SIZE, BERT_HIDDEN_SIZE)
+        self.paraphrase_linear_interact = torch.nn.Linear(BERT_HIDDEN_SIZE, 1)
         # similarity layers
         self.similarity_dropout_1 = torch.nn.Dropout(config.hidden_dropout_prob)
         self.similarity_dropout_2 = torch.nn.Dropout(config.hidden_dropout_prob)
@@ -106,8 +108,10 @@ class MultitaskBERT(nn.Module):
         output_2 = self.forward(input_ids_2, attention_mask_2)
         output_1 = self.paraphrase_dropout_1(output_1)
         output_2 = self.paraphrase_dropout_2(output_2)
-        output = torch.cat((output_1, output_2), -1)
-        paraphrase_logit = self.paraphrase_linear(output)
+        output_1 = self.paraphrase_linear_1(output_1)
+        output_2 = self.paraphrase_linear_2(output_2)
+        output = torch.mul(output_1, output_2)
+        paraphrase_logit = self.paraphrase_linear_interact(output)
         
         return paraphrase_logit
 
