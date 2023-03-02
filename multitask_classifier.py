@@ -107,7 +107,6 @@ class MultitaskBERT(nn.Module):
         output_1 = self.paraphrase_dropout_1(output_1)
         output_2 = self.paraphrase_dropout_2(output_2)
         output = output_1.mul(output_2)
-        paraphrase_logit = self.similarity_linear_interact(output)
         paraphrase_logit = self.paraphrase_linear(output)
         
         return paraphrase_logit
@@ -128,7 +127,7 @@ class MultitaskBERT(nn.Module):
         output_1 = self.similarity_linear_1(output_1)
         output_2 = self.similarity_linear_2(output_2)
         output = torch.cat((output_1, output_2), -1)
-        similarity_logit = self.similarity_linear(output)
+        similarity_logit = self.similarity_linear_interact(output)
 
         return similarity_logit
 
