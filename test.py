@@ -7,15 +7,23 @@ from base_bert import BertPreTrainedModel
 from utils import *
 from bert import BertSelfAttention
 
-# JUST TESTING TESTING TESTING
+# test torch.view
+a = torch.randn(2,2,3)
+print(a)
+print(a.shape)
+b = a.view(-1)
+print(b)
+print(b.shape)
 
 # test torch.mul
+'''
 a = torch.randn(2,2,3)
 b = torch.randn(2,2,3)
 print(a)
 print(b)
 output = a.mul(b)
 print(output)
+'''
 
 # how does softmax behave? (with respect to dim parameter)
 '''

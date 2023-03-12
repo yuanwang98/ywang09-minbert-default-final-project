@@ -172,7 +172,6 @@ def train_multitask(args):
                                     collate_fn=sst_dev_data.collate_fn)
     
     # para data
-    '''
     para_train_data = SentencePairDataset(para_train_data, args)
     para_dev_data = SentencePairDataset(para_dev_data, args)
 
@@ -189,7 +188,6 @@ def train_multitask(args):
                                       collate_fn=sts_train_data.collate_fn)
     sts_dev_dataloader = DataLoader(sts_dev_data, shuffle=False, batch_size=args.batch_size,
                                     collate_fn=sts_dev_data.collate_fn)
-    '''
 
     # multitask model
     config = {'hidden_dropout_prob': args.hidden_dropout_prob,
@@ -230,11 +228,10 @@ def train_multitask(args):
 
             train_loss += loss.item()
             num_batches += 1
-
-        '''
+        
         # para training
         num_batches = 0
-        for batch in tqdm(sst_train_dataloader, desc=f'train-{epoch}', disable=TQDM_DISABLE):
+        for batch in tqdm(para_train_dataloader, desc=f'train-{epoch}', disable=TQDM_DISABLE):
             b_ids_1, b_ids_2, b_mask_1, b_mask_2, b_labels = (batch['token_ids_1'],
                                        batch['token_ids_2'], batch['attention_mask_1'],
                                        batch['attention_mask_2'], batch['labels'])
@@ -246,8 +243,9 @@ def train_multitask(args):
             b_labels = b_labels.to(device)
 
             optimizer.zero_grad()
-            logits = model.predict_paraphrase(b_ids_1, b_ids_2, b_mask_1, b_mask_2)
-            loss = F.cross_entropy(logits, b_labels.view(-1), reduction='sum') / args.batch_size
+            logits = model.predict_paraphrase(b_ids_1, b_mask_1, b_ids_2, b_mask_2)
+            logits = torch.sigmoid(logits) # sigmoid
+            loss = F.l1_loss(logits.view(-1), b_labels) / args.batch_size # L1 loss
 
             loss.backward()
             optimizer.step()
@@ -256,7 +254,8 @@ def train_multitask(args):
             num_batches += 1
 
 
-        # sts training
+        # sts training (TO COME)
+        '''
         num_batches = 0
         for batch in tqdm(sst_train_dataloader, desc=f'train-{epoch}', disable=TQDM_DISABLE):
             b_ids, b_mask, b_labels = (batch['token_ids'],
