@@ -91,6 +91,7 @@ class MultitaskBERT(nn.Module):
         '''
         ### TODO
         output = self.forward(input_ids, attention_mask)
+        output = self.sentiment_dropout(output) # dropout added
         sentiment_logits = self.sentiment_linear(output)
 
         return sentiment_logits
@@ -161,6 +162,7 @@ def train_multitask(args):
     sst_train_data, num_labels,para_train_data, sts_train_data = load_multitask_data(args.sst_train,args.para_train,args.sts_train, split ='train')
     sst_dev_data, num_labels,para_dev_data, sts_dev_data = load_multitask_data(args.sst_dev,args.para_dev,args.sts_dev, split ='train')
 
+    # sst data
     sst_train_data = SentenceClassificationDataset(sst_train_data, args)
     sst_dev_data = SentenceClassificationDataset(sst_dev_data, args)
 
@@ -168,8 +170,28 @@ def train_multitask(args):
                                       collate_fn=sst_train_data.collate_fn)
     sst_dev_dataloader = DataLoader(sst_dev_data, shuffle=False, batch_size=args.batch_size,
                                     collate_fn=sst_dev_data.collate_fn)
+    
+    # para data
+    '''
+    para_train_data = SentencePairDataset(para_train_data, args)
+    para_dev_data = SentencePairDataset(para_dev_data, args)
 
-    # Init model
+    para_train_dataloader = DataLoader(para_train_data, shuffle=True, batch_size=args.batch_size,
+                                      collate_fn=para_train_data.collate_fn)
+    para_dev_dataloader = DataLoader(para_dev_data, shuffle=False, batch_size=args.batch_size,
+                                    collate_fn=para_dev_data.collate_fn)
+
+    # sts data
+    sts_train_data = SentencePairDataset(sts_train_data, args)
+    sts_dev_data = SentencePairDataset(sts_dev_data, args)
+
+    sts_train_dataloader = DataLoader(sts_train_data, shuffle=True, batch_size=args.batch_size,
+                                      collate_fn=sts_train_data.collate_fn)
+    sts_dev_dataloader = DataLoader(sts_dev_data, shuffle=False, batch_size=args.batch_size,
+                                    collate_fn=sts_dev_data.collate_fn)
+    '''
+
+    # multitask model
     config = {'hidden_dropout_prob': args.hidden_dropout_prob,
               'num_labels': num_labels,
               'hidden_size': 768,
@@ -190,6 +212,7 @@ def train_multitask(args):
         model.train()
         train_loss = 0
         num_batches = 0
+        # sst training
         for batch in tqdm(sst_train_dataloader, desc=f'train-{epoch}', disable=TQDM_DISABLE):
             b_ids, b_mask, b_labels = (batch['token_ids'],
                                        batch['attention_mask'], batch['labels'])
@@ -207,6 +230,53 @@ def train_multitask(args):
 
             train_loss += loss.item()
             num_batches += 1
+
+        '''
+        # para training
+        num_batches = 0
+        for batch in tqdm(sst_train_dataloader, desc=f'train-{epoch}', disable=TQDM_DISABLE):
+            b_ids_1, b_ids_2, b_mask_1, b_mask_2, b_labels = (batch['token_ids_1'],
+                                       batch['token_ids_2'], batch['attention_mask_1'],
+                                       batch['attention_mask_2'], batch['labels'])
+
+            b_ids_1 = b_ids_1.to(device)
+            b_ids_2 = b_ids_2.to(device)
+            b_mask_1 = b_mask_1.to(device)
+            b_mask_2 = b_mask_2.to(device)
+            b_labels = b_labels.to(device)
+
+            optimizer.zero_grad()
+            logits = model.predict_paraphrase(b_ids_1, b_ids_2, b_mask_1, b_mask_2)
+            loss = F.cross_entropy(logits, b_labels.view(-1), reduction='sum') / args.batch_size
+
+            loss.backward()
+            optimizer.step()
+
+            train_loss += loss.item()
+            num_batches += 1
+
+
+        # sts training
+        num_batches = 0
+        for batch in tqdm(sst_train_dataloader, desc=f'train-{epoch}', disable=TQDM_DISABLE):
+            b_ids, b_mask, b_labels = (batch['token_ids'],
+                                       batch['attention_mask'], batch['labels'])
+
+            b_ids = b_ids.to(device)
+            b_mask = b_mask.to(device)
+            b_labels = b_labels.to(device)
+
+            optimizer.zero_grad()
+            logits = model.predict_sentiment(b_ids, b_mask)
+            loss = F.cross_entropy(logits, b_labels.view(-1), reduction='sum') / args.batch_size
+
+            loss.backward()
+            optimizer.step()
+
+            train_loss += loss.item()
+            num_batches += 1
+        '''
+
 
         train_loss = train_loss / (num_batches)
 

@@ -7,6 +7,8 @@ from base_bert import BertPreTrainedModel
 from utils import *
 from bert import BertSelfAttention
 
+# JUST TESTING TESTING TESTING
+
 # test torch.mul
 a = torch.randn(2,2,3)
 b = torch.randn(2,2,3)
