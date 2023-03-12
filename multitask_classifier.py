@@ -13,7 +13,9 @@ from tqdm import tqdm
 from datasets import SentenceClassificationDataset, SentencePairDataset, \
     load_multitask_data, load_multitask_test_data
 
-from evaluation import model_eval_sst, test_model_multitask, model_eval_test_multitask
+from evaluation import model_eval_sst, test_model_multitask, model_eval_multitask
+
+import math
 
 
 TQDM_DISABLE=True
@@ -253,6 +255,12 @@ def train_multitask(args):
             train_loss += loss.item()
             num_batches += 1
 
+            # temp, for quick debugging
+            '''
+            print("batch", num_batches)
+            if num_batches > 2:
+                break
+            '''
 
         # sts training (TO COME)
         '''
@@ -279,14 +287,18 @@ def train_multitask(args):
 
         train_loss = train_loss / (num_batches)
 
-        train_acc, train_f1, *_ = model_eval_test_multitask(sst_train_dataloader, para_train_dataloader, sts_train_dataloader, model, device)
-        dev_acc, dev_f1, *_ = model_eval_test_multitask(sst_dev_dataloader, para_dev_dataloader, sts_dev_dataloader, model, device)
+        train_acc_sst, _, _, train_acc_para, *_ = model_eval_multitask(sst_train_dataloader, para_train_dataloader, sts_train_dataloader, model, device)
+        dev_acc_sst, _, _, dev_acc_para, *_ = model_eval_multitask(sst_dev_dataloader, para_dev_dataloader, sts_dev_dataloader, model, device)
 
+        train_acc = math.mean(train_acc_sst, train_acc_para)
+        dev_acc = math.mean(dev_acc_sst, dev_acc_para)
         if dev_acc > best_dev_acc:
             best_dev_acc = dev_acc
             save_model(model, optimizer, args, config, args.filepath)
 
         print(f"Epoch {epoch}: train loss :: {train_loss :.3f}, train acc :: {train_acc :.3f}, dev acc :: {dev_acc :.3f}")
+        print(f"Epoch {epoch}: sst train acc :: {train_acc_sst :.3f}, para train acc :: {train_acc_para :.3f}, \
+              sst dev acc :: {dev_acc_sst :.3f}, para dev acc :: {dev_acc_para}")
 
 
 
