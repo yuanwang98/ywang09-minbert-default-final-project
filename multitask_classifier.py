@@ -256,11 +256,10 @@ def train_multitask(args):
             num_batches += 1
 
             # temp, for quick debugging
-            '''
             print("batch", num_batches)
-            if num_batches > 2:
+            if num_batches >= 1000:
                 break
-            '''
+            
 
         # sts training (TO COME)
         '''
