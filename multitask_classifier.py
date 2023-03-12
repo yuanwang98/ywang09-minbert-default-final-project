@@ -15,7 +15,6 @@ from datasets import SentenceClassificationDataset, SentencePairDataset, \
 
 from evaluation import model_eval_sst, test_model_multitask, model_eval_multitask
 
-import math
 
 
 TQDM_DISABLE=True
@@ -230,6 +229,10 @@ def train_multitask(args):
 
             train_loss += loss.item()
             num_batches += 1
+
+            # temp, for quick debugging
+            if num_batches >= 10:
+                break
         
         # para training
         num_batches = 0
@@ -253,7 +256,12 @@ def train_multitask(args):
             optimizer.step()
 
             train_loss += loss.item()
-            num_batches += 1            
+            num_batches += 1
+
+            # temp, for quick debugging
+            if num_batches >= 10:
+                break
+            
 
         # sts training (TO COME)
         '''
@@ -283,8 +291,8 @@ def train_multitask(args):
         train_acc_sst, _, _, train_acc_para, *_ = model_eval_multitask(sst_train_dataloader, para_train_dataloader, sts_train_dataloader, model, device)
         dev_acc_sst, _, _, dev_acc_para, *_ = model_eval_multitask(sst_dev_dataloader, para_dev_dataloader, sts_dev_dataloader, model, device)
 
-        train_acc = math.mean(train_acc_sst, train_acc_para)
-        dev_acc = math.mean(dev_acc_sst, dev_acc_para)
+        train_acc = np.average([train_acc_sst, train_acc_para])
+        dev_acc = np.average([dev_acc_sst, dev_acc_para])
         if dev_acc > best_dev_acc:
             best_dev_acc = dev_acc
             save_model(model, optimizer, args, config, args.filepath)
