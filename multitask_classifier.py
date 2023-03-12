@@ -230,9 +230,11 @@ def train_multitask(args):
             train_loss += loss.item()
             num_batches += 1
 
+            '''
             # temp, for quick debugging
             if num_batches >= 10:
                 break
+            '''
         
         # para training
         num_batches = 0
@@ -258,9 +260,11 @@ def train_multitask(args):
             train_loss += loss.item()
             num_batches += 1
 
+            '''
             # temp, for quick debugging
             if num_batches >= 10:
                 break
+            '''
             
 
         # sts training (TO COME)
