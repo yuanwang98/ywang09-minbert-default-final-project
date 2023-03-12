@@ -177,9 +177,9 @@ def train_multitask(args):
     para_train_data = SentencePairDataset(para_train_data, args)
     para_dev_data = SentencePairDataset(para_dev_data, args)
 
-    para_train_dataloader = DataLoader(para_train_data, shuffle=True, batch_size=args.batch_size,
+    para_train_dataloader = DataLoader(para_train_data, shuffle=True, batch_size=args.batch_size * 16, # * 16 TEMPORARY, MAKE BATCHES LARGER!
                                       collate_fn=para_train_data.collate_fn)
-    para_dev_dataloader = DataLoader(para_dev_data, shuffle=False, batch_size=args.batch_size,
+    para_dev_dataloader = DataLoader(para_dev_data, shuffle=False, batch_size=args.batch_size * 16, # * 16 TEMPORARY, MAKE BATCHES LARGER!
                                     collate_fn=para_dev_data.collate_fn)
 
     # sts data
@@ -253,13 +253,7 @@ def train_multitask(args):
             optimizer.step()
 
             train_loss += loss.item()
-            num_batches += 1
-
-            # temp, for quick debugging
-            print("batch", num_batches)
-            if num_batches >= 1000:
-                break
-            
+            num_batches += 1            
 
         # sts training (TO COME)
         '''
