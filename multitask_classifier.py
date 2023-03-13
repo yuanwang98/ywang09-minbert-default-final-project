@@ -214,6 +214,7 @@ def train_multitask(args):
 
         # sst training
         for batch in tqdm(sst_train_dataloader, desc=f'train-{epoch}', disable=TQDM_DISABLE):
+            # TESTING!
             b_ids, b_mask, b_labels = (batch['token_ids'],
                                        batch['attention_mask'], batch['labels'])
 
@@ -269,7 +270,7 @@ def train_multitask(args):
             b_labels = b_labels.to(device)
 
             optimizer.zero_grad()
-            logits = model.predict_paraphrase(b_ids_1, b_mask_1, b_ids_2, b_mask_2)
+            logits = model.predict_similarity(b_ids_1, b_mask_1, b_ids_2, b_mask_2)
             logits = torch.sigmoid(logits) # sigmoid
             logits = logits.mul(5) # multiply by five to match labels
             loss = F.l1_loss(logits.view(-1), b_labels) / args.batch_size # L1 loss
