@@ -212,7 +212,6 @@ def train_multitask(args):
         train_loss = 0
         num_batches = 0
 
-        '''
         # sst training
         for batch in tqdm(sst_train_dataloader, desc=f'train-{epoch}', disable=TQDM_DISABLE):
             b_ids, b_mask, b_labels = (batch['token_ids'],
@@ -255,7 +254,6 @@ def train_multitask(args):
 
             train_loss += loss.item()
             num_batches += 1
-        '''
             
         # sts training
         num_batches = 0
@@ -281,12 +279,6 @@ def train_multitask(args):
 
             train_loss += loss.item()
             num_batches += 1
-
-            '''
-            print('batch', num_batches)
-            if num_batches > 10:
-                break
-            '''
 
 
         train_loss = train_loss / (num_batches)
