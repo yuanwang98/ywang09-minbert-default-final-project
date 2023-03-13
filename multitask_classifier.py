@@ -15,6 +15,8 @@ from datasets import SentenceClassificationDataset, SentencePairDataset, \
 
 from evaluation import model_eval_sst, test_model_multitask, model_eval_multitask
 
+import pandas as pd
+
 
 
 TQDM_DISABLE=True
@@ -158,6 +160,12 @@ def save_model(model, optimizer, args, config, filepath):
 ## Currently only trains on sst dataset
 def train_multitask(args):
     device = torch.device('cuda') if args.use_gpu else torch.device('cpu')
+
+    # create a dataframe for training outcomes for each epoch
+    df = pd.DataFrame(columns = ['epoch', 'train_acc_sst', 'train_acc_para', 'train_acc_sts', 'train_acc', \
+                             'dev_acc_sst', 'dev_acc_para', 'dev_acc_sts', 'dev_acc'])
+    
+
     # Load data
     # Create the data and its corresponding datasets and dataloader
     sst_train_data, num_labels,para_train_data, sts_train_data = load_multitask_data(args.sst_train,args.para_train,args.sts_train, split ='train')
@@ -294,6 +302,13 @@ def train_multitask(args):
             save_model(model, optimizer, args, config, args.filepath)
 
         print(f"Epoch {epoch}: train loss :: {train_loss :.3f}, train acc :: {train_acc :.3f}, dev acc :: {dev_acc :.3f}")
+        df = df.append({'epoch' : epoch, 'train_acc_sst' :train_acc_sst, 'train_acc_para' : train_acc_para,\
+                        'train_acc_sts' : train_acc_sts, 'train_acc' : train_acc, 'dev_acc_sst' : dev_acc_sst,\
+                            'dev_acc_para' : dev_acc_para, 'dev_acc_sts' : dev_acc_sts, 'dev_acc' : dev_acc}, ignore_index = True)
+
+    
+    filename = f"training_results_by_epoch_{args.epoch_results_filename}.xlsx"
+    df.to_excel(filename)
 
 
 
@@ -346,6 +361,9 @@ def get_args():
     parser.add_argument("--hidden_dropout_prob", type=float, default=0.3)
     parser.add_argument("--lr", type=float, help="learning rate, default lr for 'pretrain': 1e-3, 'finetune': 1e-5",
                         default=1e-5)
+    
+    # training results filename
+    parser.add_argument("--epoch_results_filename", help='name for training results by epoch excel file', type=str, default = '')
 
     args = parser.parse_args()
     return args
