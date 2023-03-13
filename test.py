@@ -7,13 +7,23 @@ from base_bert import BertPreTrainedModel
 from utils import *
 from bert import BertSelfAttention
 
+# test torch.mul
+a = torch.randn(1,4)
+b = torch.randn(1,4)
+print(a)
+print(b)
+print(b.transpose(-1, -2))
+print(a.matmul(b.transpose(-1, -2)))
+
 # test torch.view
+'''
 a = torch.randn(2,2,3)
 print(a)
 print(a.shape)
 b = a.view(-1)
 print(b)
 print(b.shape)
+'''
 
 # test torch.mul
 '''

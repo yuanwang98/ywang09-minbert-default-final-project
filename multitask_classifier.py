@@ -112,7 +112,7 @@ class MultitaskBERT(nn.Module):
         output_2 = self.paraphrase_dropout_2(output_2)
         output_1 = self.paraphrase_linear_1(output_1)
         output_2 = self.paraphrase_linear_2(output_2)
-        output = torch.mul(output_1, output_2)
+        output = torch.mul(output_1, output_2) # want to update this to torch.mul(output_1, output_2), and drop the next row
         paraphrase_logit = self.paraphrase_linear_interact(output)
         
         return paraphrase_logit
@@ -211,6 +211,8 @@ def train_multitask(args):
         model.train()
         train_loss = 0
         num_batches = 0
+
+        '''
         # sst training
         for batch in tqdm(sst_train_dataloader, desc=f'train-{epoch}', disable=TQDM_DISABLE):
             b_ids, b_mask, b_labels = (batch['token_ids'],
@@ -229,12 +231,6 @@ def train_multitask(args):
 
             train_loss += loss.item()
             num_batches += 1
-
-            '''
-            # temp, for quick debugging
-            if num_batches >= 10:
-                break
-            '''
         
         # para training
         num_batches = 0
@@ -259,51 +255,52 @@ def train_multitask(args):
 
             train_loss += loss.item()
             num_batches += 1
-
-            '''
-            # temp, for quick debugging
-            if num_batches >= 10:
-                break
-            '''
-            
-
-        # sts training (TO COME)
         '''
+            
+        # sts training
         num_batches = 0
-        for batch in tqdm(sst_train_dataloader, desc=f'train-{epoch}', disable=TQDM_DISABLE):
-            b_ids, b_mask, b_labels = (batch['token_ids'],
-                                       batch['attention_mask'], batch['labels'])
+        for batch in tqdm(sts_train_dataloader, desc=f'train-{epoch}', disable=TQDM_DISABLE):
+            b_ids_1, b_ids_2, b_mask_1, b_mask_2, b_labels = (batch['token_ids_1'],
+                                       batch['token_ids_2'], batch['attention_mask_1'],
+                                       batch['attention_mask_2'], batch['labels'])
 
-            b_ids = b_ids.to(device)
-            b_mask = b_mask.to(device)
+            b_ids_1 = b_ids_1.to(device)
+            b_ids_2 = b_ids_2.to(device)
+            b_mask_1 = b_mask_1.to(device)
+            b_mask_2 = b_mask_2.to(device)
             b_labels = b_labels.to(device)
 
             optimizer.zero_grad()
-            logits = model.predict_sentiment(b_ids, b_mask)
-            loss = F.cross_entropy(logits, b_labels.view(-1), reduction='sum') / args.batch_size
+            logits = model.predict_paraphrase(b_ids_1, b_mask_1, b_ids_2, b_mask_2)
+            logits = torch.sigmoid(logits) # sigmoid
+            logits = logits.mul(5) # multiply by five to match labels
+            loss = F.l1_loss(logits.view(-1), b_labels) / args.batch_size # L1 loss
 
             loss.backward()
             optimizer.step()
 
             train_loss += loss.item()
             num_batches += 1
-        '''
+
+            '''
+            print('batch', num_batches)
+            if num_batches > 10:
+                break
+            '''
 
 
         train_loss = train_loss / (num_batches)
 
-        train_acc_sst, _, _, train_acc_para, *_ = model_eval_multitask(sst_train_dataloader, para_train_dataloader, sts_train_dataloader, model, device)
-        dev_acc_sst, _, _, dev_acc_para, *_ = model_eval_multitask(sst_dev_dataloader, para_dev_dataloader, sts_dev_dataloader, model, device)
+        train_acc_sst, _, _, train_acc_para, _, _, train_acc_sts, *_ = model_eval_multitask(sst_train_dataloader, para_train_dataloader, sts_train_dataloader, model, device)
+        dev_acc_sst, _, _, dev_acc_para, _, _, dev_acc_sts, *_ = model_eval_multitask(sst_dev_dataloader, para_dev_dataloader, sts_dev_dataloader, model, device)
 
-        train_acc = np.average([train_acc_sst, train_acc_para])
-        dev_acc = np.average([dev_acc_sst, dev_acc_para])
+        train_acc = np.average([train_acc_sst, train_acc_para, train_acc_sts])
+        dev_acc = np.average([dev_acc_sst, dev_acc_para, dev_acc_sts])
         if dev_acc > best_dev_acc:
             best_dev_acc = dev_acc
             save_model(model, optimizer, args, config, args.filepath)
 
         print(f"Epoch {epoch}: train loss :: {train_loss :.3f}, train acc :: {train_acc :.3f}, dev acc :: {dev_acc :.3f}")
-        print(f"Epoch {epoch}: sst train acc :: {train_acc_sst :.3f}, para train acc :: {train_acc_para :.3f}, \
-              sst dev acc :: {dev_acc_sst :.3f}, para dev acc :: {dev_acc_para}")
 
 
 
