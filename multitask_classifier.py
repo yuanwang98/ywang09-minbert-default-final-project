@@ -133,6 +133,7 @@ class MultitaskBERT(nn.Module):
         output_1 = self.similarity_dropout_1(output_1)
         output_2 = self.similarity_dropout_2(output_2)
         if args.share_layers:
+            print('Note: sharing layers between para and sts')
             output_1 = self.paraphrase_linear_1(output_1)
             output_2 = self.paraphrase_linear_2(output_2)
         else:
@@ -226,7 +227,6 @@ def train_multitask(args):
 
         # sst training
         for batch in tqdm(sst_train_dataloader, desc=f'train-{epoch}', disable=TQDM_DISABLE):
-            # TESTING!
             b_ids, b_mask, b_labels = (batch['token_ids'],
                                        batch['attention_mask'], batch['labels'])
 
@@ -296,8 +296,8 @@ def train_multitask(args):
 
         train_loss = train_loss / (num_batches)
 
-        train_acc_sst, _, _, train_acc_para, _, _, train_acc_sts, *_ = model_eval_multitask(sst_train_dataloader, para_train_dataloader, sts_train_dataloader, model, device)
-        dev_acc_sst, _, _, dev_acc_para, _, _, dev_acc_sts, *_ = model_eval_multitask(sst_dev_dataloader, para_dev_dataloader, sts_dev_dataloader, model, device)
+        train_acc_para, _, _, train_acc_sst, _, _, train_acc_sts, *_ = model_eval_multitask(sst_train_dataloader, para_train_dataloader, sts_train_dataloader, model, device)
+        dev_acc_para, _, _, dev_acc_sst, _, _, dev_acc_sts, *_ = model_eval_multitask(sst_dev_dataloader, para_dev_dataloader, sts_dev_dataloader, model, device)
 
         train_acc = np.average([train_acc_sst, train_acc_para, train_acc_sts])
         dev_acc = np.average([dev_acc_sst, dev_acc_para, dev_acc_sts])
