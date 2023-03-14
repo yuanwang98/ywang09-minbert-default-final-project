@@ -132,8 +132,12 @@ class MultitaskBERT(nn.Module):
         output_2 = self.forward(input_ids_2, attention_mask_2)
         output_1 = self.similarity_dropout_1(output_1)
         output_2 = self.similarity_dropout_2(output_2)
-        output_1 = self.similarity_linear_1(output_1)
-        output_2 = self.similarity_linear_2(output_2)
+        if args.share_layers:
+            output_1 = self.paraphrase_linear_1(output_1)
+            output_2 = self.paraphrase_linear_2(output_2)
+        else:
+            output_1 = self.similarity_linear_1(output_1)
+            output_2 = self.similarity_linear_2(output_2)
         output = torch.mul(output_1, output_2)
         similarity_logit = self.similarity_linear_interact(output)
 
@@ -364,6 +368,8 @@ def get_args():
     
     # training results filename
     parser.add_argument("--epoch_results_filename", help='name for training results by epoch excel file', type=str, default = '')
+    # share layers
+    parser.add_argument("--share_layers", help = 'share layers between para and sts', action='store_true')
 
     args = parser.parse_args()
     return args
