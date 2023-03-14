@@ -269,7 +269,7 @@ def train_multitask(args):
             num_batches += 1
 
             # temporary, for experimentation (train on about 8000 data points)
-            if num_batches > 500:
+            if num_batches > 250:
                 break
             
         # sts training
