@@ -165,7 +165,7 @@ def save_model(model, optimizer, args, config, filepath):
 def train_multitask(args):
     device = torch.device('cuda') if args.use_gpu else torch.device('cpu')
 
-    # create a dataframe for training outcomes for each epoch
+    # create a dataframe for training outcomes for each epoch (requires the pandas and openpyxl packages)
     df = pd.DataFrame(columns = ['epoch', 'train_acc_sst', 'train_acc_para', 'train_acc_sts', 'train_acc', \
                              'dev_acc_sst', 'dev_acc_para', 'dev_acc_sts', 'dev_acc'])
     
