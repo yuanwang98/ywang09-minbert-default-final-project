@@ -270,13 +270,6 @@ def train_multitask(args):
 
             train_loss += loss.item()
             num_batches += 1
-
-            # temporary, for experimentation (train on about 8000 data points)
-            if num_batches > 250:
-                break
-            
-            if num_batches < 2 and epoch == 0:
-                print(batch)
             
         # sts training
         num_batches = 0
