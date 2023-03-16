@@ -6,6 +6,14 @@ import torch.nn.functional as F
 from base_bert import BertPreTrainedModel
 from utils import *
 from bert import BertSelfAttention
+from tqdm import tqdm
+
+# test tqdm
+'''
+data_loader = range(100)
+for int in tqdm(data_loader):
+    print(int)
+'''
 
 # test torch.mul
 '''

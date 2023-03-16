@@ -80,7 +80,7 @@ class MultitaskBERT(nn.Module):
         # When thinking of improvements, you can later try modifying this
         # (e.g., by adding other layers).
         ### TODO
-        outputs = self.bert(input_ids, attention_mask)
+        outputs = self.bert(input_ids, attention_mask)  # potentially perform dropout on input_ids
         pooler_output = outputs['pooler_output']
 
         return pooler_output
@@ -243,6 +243,9 @@ def train_multitask(args):
 
             train_loss += loss.item()
             num_batches += 1
+
+            if num_batches < 2 and epoch == 0:
+                print(batch)
         
         # para training
         num_batches = 0
@@ -272,6 +275,9 @@ def train_multitask(args):
             if num_batches > 250:
                 break
             
+            if num_batches < 2 and epoch == 0:
+                print(batch)
+            
         # sts training
         num_batches = 0
         for batch in tqdm(sts_train_dataloader, desc=f'train-{epoch}', disable=TQDM_DISABLE):
@@ -296,6 +302,9 @@ def train_multitask(args):
 
             train_loss += loss.item()
             num_batches += 1
+
+            if num_batches < 2 and epoch == 0:
+                print(batch)
 
 
         train_loss = train_loss / (num_batches)
