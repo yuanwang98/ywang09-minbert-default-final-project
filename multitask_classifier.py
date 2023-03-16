@@ -133,7 +133,7 @@ class MultitaskBERT(nn.Module):
         output_1 = self.similarity_dropout_1(output_1)
         output_2 = self.similarity_dropout_2(output_2)
         if args.share_layers:
-            print('Note: sharing layers between para and sts')
+            print('NOTE: sharing layers between para and sts')
             output_1 = self.paraphrase_linear_1(output_1)
             output_2 = self.paraphrase_linear_2(output_2)
         else:
@@ -243,9 +243,6 @@ def train_multitask(args):
 
             train_loss += loss.item()
             num_batches += 1
-
-            if num_batches < 2 and epoch == 0:
-                print(batch)
         
         # para training
         num_batches = 0
@@ -300,9 +297,6 @@ def train_multitask(args):
 
             train_loss += loss.item()
             num_batches += 1
-
-            if num_batches < 2 and epoch == 0:
-                print(batch)
 
 
         train_loss = train_loss / (num_batches)
