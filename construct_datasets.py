@@ -49,5 +49,6 @@ def get_args():
     return args
 
 if __name__ == "__main__":
+    print('running construct_datasets.py')
     args = get_args()
     construct_datasets(args)

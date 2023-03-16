@@ -8,6 +8,8 @@ from utils import *
 from bert import BertSelfAttention
 from tqdm import tqdm
 
+print('testing testing')
+
 # test tqdm
 '''
 data_loader = range(100)
