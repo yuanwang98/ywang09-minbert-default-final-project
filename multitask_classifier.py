@@ -270,7 +270,12 @@ def train_multitask(args):
 
             train_loss += loss.item()
             num_batches += 1
-            
+
+            # temporary, for experimentation (train on about 8000 data points)
+            if args.para_training_cut & num_batches * args.batch_size > 8000:
+                print('NOTE: para training cut.')
+                break
+                        
         # sts training
         num_batches = 0
         for batch in tqdm(sts_train_dataloader, desc=f'train-{epoch}', disable=TQDM_DISABLE):
@@ -376,6 +381,8 @@ def get_args():
     parser.add_argument("--epoch_results_filename", help='name for training results by epoch excel file', type=str, default = '')
     # share layers
     parser.add_argument("--share_layers", help = 'share layers between para and sts', action='store_true')
+    # cut down on para training
+    parser.add_argument("--para_training_cut", help = 'cut down on para training', action='store_true')
 
     args = parser.parse_args()
     return args
