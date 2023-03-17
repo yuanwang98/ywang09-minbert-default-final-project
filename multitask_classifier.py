@@ -321,7 +321,8 @@ def train_multitask(args):
                 cnt_batch_sst = math.ceil((len(sst_train_dataloader) / cnt_iter))
                 cnt_batch_para = math.ceil((len(para_train_dataloader) / cnt_iter))
                 cnt_batch_sts = 1
-            
+            print(cnt_batch_sst, cnt_batch_para, cnt_batch_sts)
+
             # training by iteration
             num_batch_sst = 0
             num_batch_para = 0
@@ -377,7 +378,7 @@ def train_multitask(args):
                     optimizer.zero_grad()
                     logits = model.predict_paraphrase(b_ids_1, b_mask_1, b_ids_2, b_mask_2)
                     logits = torch.sigmoid(logits) # sigmoid
-                    loss = F.l1_loss(logits.view(-1), b_labels) / (args.batch_size * cnt_batch_para) # L1 loss (normalized by observation #)
+                    loss += F.l1_loss(logits.view(-1), b_labels) / (args.batch_size * cnt_batch_para) # L1 loss (normalized by observation #)
                 num_batch_para += cnt_batch_para
                 
                 # train on sts batch(es)
@@ -402,7 +403,7 @@ def train_multitask(args):
                     logits = model.predict_similarity(b_ids_1, b_mask_1, b_ids_2, b_mask_2)
                     logits = torch.sigmoid(logits) # sigmoid
                     logits = logits.mul(5) # multiply by five to match labels
-                    loss = F.l1_loss(logits.view(-1), b_labels) / (args.batch_size * cnt_batch_sts) # L1 loss (normalized by observation #)
+                    loss += F.l1_loss(logits.view(-1), b_labels) / (args.batch_size * cnt_batch_sts) # L1 loss (normalized by observation #)
                 num_batch_sts += cnt_batch_sts
 
                 # step
