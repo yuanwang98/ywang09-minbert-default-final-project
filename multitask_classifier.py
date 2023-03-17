@@ -16,7 +16,7 @@ from datasets import SentenceClassificationDataset, SentencePairDataset, \
 from evaluation import model_eval_sst, test_model_multitask, model_eval_multitask
 
 import pandas as pd
-
+import math
 
 
 TQDM_DISABLE=True
@@ -161,8 +161,6 @@ def save_model(model, optimizer, args, config, filepath):
     torch.save(save_info, filepath)
     print(f"save the model to {filepath}")
 
-
-## Currently only trains on sst dataset
 def train_multitask(args):
     device = torch.device('cuda') if args.use_gpu else torch.device('cpu')
 
@@ -225,79 +223,192 @@ def train_multitask(args):
         train_loss = 0
         num_batches = 0
 
-        # sst training
-        for batch in tqdm(sst_train_dataloader, desc=f'train-{epoch}', disable=TQDM_DISABLE):
-            b_ids, b_mask, b_labels = (batch['token_ids'],
-                                       batch['attention_mask'], batch['labels'])
+        if args.training_method == 'single':
+            # sst training
+            for batch in tqdm(sst_train_dataloader, desc=f'train-{epoch}', disable=TQDM_DISABLE):
+                b_ids, b_mask, b_labels = (batch['token_ids'],
+                                        batch['attention_mask'], batch['labels'])
 
-            b_ids = b_ids.to(device)
-            b_mask = b_mask.to(device)
-            b_labels = b_labels.to(device)
+                b_ids = b_ids.to(device)
+                b_mask = b_mask.to(device)
+                b_labels = b_labels.to(device)
 
-            optimizer.zero_grad()
-            logits = model.predict_sentiment(b_ids, b_mask)
-            loss = F.cross_entropy(logits, b_labels.view(-1), reduction='sum') / args.batch_size
+                optimizer.zero_grad()
+                logits = model.predict_sentiment(b_ids, b_mask)
+                loss = F.cross_entropy(logits, b_labels.view(-1), reduction='sum') / args.batch_size
 
-            loss.backward()
-            optimizer.step()
+                loss.backward()
+                optimizer.step()
 
-            train_loss += loss.item()
-            num_batches += 1
+                train_loss += loss.item()
+                num_batches += 1
+            
+            # para training
+            num_batches = 0
+            for batch in tqdm(para_train_dataloader, desc=f'train-{epoch}', disable=TQDM_DISABLE):
+                b_ids_1, b_ids_2, b_mask_1, b_mask_2, b_labels = (batch['token_ids_1'],
+                                        batch['token_ids_2'], batch['attention_mask_1'],
+                                        batch['attention_mask_2'], batch['labels'])
+
+                b_ids_1 = b_ids_1.to(device)
+                b_ids_2 = b_ids_2.to(device)
+                b_mask_1 = b_mask_1.to(device)
+                b_mask_2 = b_mask_2.to(device)
+                b_labels = b_labels.to(device)
+
+                optimizer.zero_grad()
+                logits = model.predict_paraphrase(b_ids_1, b_mask_1, b_ids_2, b_mask_2)
+                logits = torch.sigmoid(logits) # sigmoid
+                loss = F.l1_loss(logits.view(-1), b_labels) / args.batch_size # L1 loss
+
+                loss.backward()
+                optimizer.step()
+
+                train_loss += loss.item()
+                num_batches += 1
+
+                # temporary, for experimentation (train on about 8000 data points)
+                if args.para_training_cut & num_batches * args.batch_size > 8000:
+                    print('NOTE: para training cut.')
+                    break
+                            
+            # sts training
+            num_batches = 0
+            for batch in tqdm(sts_train_dataloader, desc=f'train-{epoch}', disable=TQDM_DISABLE):
+                b_ids_1, b_ids_2, b_mask_1, b_mask_2, b_labels = (batch['token_ids_1'],
+                                        batch['token_ids_2'], batch['attention_mask_1'],
+                                        batch['attention_mask_2'], batch['labels'])
+
+                b_ids_1 = b_ids_1.to(device)
+                b_ids_2 = b_ids_2.to(device)
+                b_mask_1 = b_mask_1.to(device)
+                b_mask_2 = b_mask_2.to(device)
+                b_labels = b_labels.to(device)
+
+                optimizer.zero_grad()
+                logits = model.predict_similarity(b_ids_1, b_mask_1, b_ids_2, b_mask_2)
+                logits = torch.sigmoid(logits) # sigmoid
+                logits = logits.mul(5) # multiply by five to match labels
+                loss = F.l1_loss(logits.view(-1), b_labels) / args.batch_size # L1 loss
+
+                loss.backward()
+                optimizer.step()
+
+                train_loss += loss.item()
+                num_batches += 1
         
-        # para training
-        num_batches = 0
-        for batch in tqdm(para_train_dataloader, desc=f'train-{epoch}', disable=TQDM_DISABLE):
-            b_ids_1, b_ids_2, b_mask_1, b_mask_2, b_labels = (batch['token_ids_1'],
-                                       batch['token_ids_2'], batch['attention_mask_1'],
-                                       batch['attention_mask_2'], batch['labels'])
+        elif args.training_method == "multi":
+            # cnt_iter: number of iterations, set equal to the batch number of the smallest dataset
+            # cnt_batch_*: the number of batches to train in each iteration for each dataset \
+            # taking the ceiling as batch number for the larger datasets, they will need to be 
+            # reset before the last batch is reached            
+            cnt_iter, cnt_batch_sst, cnt_batch_para, cnt_batch_sts = 0, 0, 0, 0
 
-            b_ids_1 = b_ids_1.to(device)
-            b_ids_2 = b_ids_2.to(device)
-            b_mask_1 = b_mask_1.to(device)
-            b_mask_2 = b_mask_2.to(device)
-            b_labels = b_labels.to(device)
+            # construct tqdm objects and iterators for *_dataloader
+            sst_dl, para_dl, sts_dl = tqdm(sst_train_dataloader, desc=f'train-{epoch}', disable=TQDM_DISABLE), \
+            tqdm(para_train_dataloader, desc=f'train-{epoch}', disable=TQDM_DISABLE), \
+            tqdm(sts_train_dataloader, desc=f'train-{epoch}', disable=TQDM_DISABLE)
+            sst_iter, para_iter, sts_iter = iter(sst_dl), iter(para_dl), iter(sts_dl)
 
-            optimizer.zero_grad()
-            logits = model.predict_paraphrase(b_ids_1, b_mask_1, b_ids_2, b_mask_2)
-            logits = torch.sigmoid(logits) # sigmoid
-            loss = F.l1_loss(logits.view(-1), b_labels) / args.batch_size # L1 loss
+            # find the number of iterations and the number of batches to train for each dataset during an iteration
+            if len(sst_train_dataloader) < len(sts_train_dataloader): # sst is the smallest
+                cnt_iter = len(sst_train_dataloader)
+                cnt_batch_sst = 1
+                cnt_batch_para = math.ceil((len(para_train_dataloader) / cnt_iter))
+                cnt_batch_sts = math.ceil((len(sts_train_dataloader) / cnt_iter))
+            else: # otherwise sts is the smallest
+                cnt_iter = len(sts_train_dataloader)
+                cnt_batch_sst = math.ceil((len(sst_train_dataloader) / cnt_iter))
+                cnt_batch_para = math.ceil((len(para_train_dataloader) / cnt_iter))
+                cnt_batch_sts = 1
+            
+            # training by iteration
+            num_batch_sst = 0
+            num_batch_para = 0
+            num_batch_sts = 0
+            sst_len = len(sst_train_dataloader)
+            para_len = len(para_train_dataloader)
+            sts_len = len(sts_train_dataloader)
+            sst_reset = False
+            para_reset = False
+            sts_reset = False
 
-            loss.backward()
-            optimizer.step()
+            for iteration in range(cnt_iter):
+                loss = 0
 
-            train_loss += loss.item()
-            num_batches += 1
+                # train on sst batch(es)
+                if num_batch_sst + cnt_batch_sst > sst_len and sst_reset == False:
+                    sst_dl = tqdm(sst_train_dataloader, desc=f'train-{epoch}', disable=TQDM_DISABLE)
+                    sst_iter = iter(sst_dl)
+                    sst_reset = True
+                for i in range(cnt_batch_sst):
+                    batch = next(sst_iter)
+                    b_ids, b_mask, b_labels = (batch['token_ids'],
+                                        batch['attention_mask'], batch['labels'])
 
-            # temporary, for experimentation (train on about 8000 data points)
-            if args.para_training_cut & num_batches * args.batch_size > 8000:
-                print('NOTE: para training cut.')
-                break
-                        
-        # sts training
-        num_batches = 0
-        for batch in tqdm(sts_train_dataloader, desc=f'train-{epoch}', disable=TQDM_DISABLE):
-            b_ids_1, b_ids_2, b_mask_1, b_mask_2, b_labels = (batch['token_ids_1'],
-                                       batch['token_ids_2'], batch['attention_mask_1'],
-                                       batch['attention_mask_2'], batch['labels'])
+                    b_ids = b_ids.to(device)
+                    b_mask = b_mask.to(device)
+                    b_labels = b_labels.to(device)
 
-            b_ids_1 = b_ids_1.to(device)
-            b_ids_2 = b_ids_2.to(device)
-            b_mask_1 = b_mask_1.to(device)
-            b_mask_2 = b_mask_2.to(device)
-            b_labels = b_labels.to(device)
+                    optimizer.zero_grad()
+                    logits = model.predict_sentiment(b_ids, b_mask)
+                    loss += F.cross_entropy(logits, b_labels.view(-1), reduction='sum') / (args.batch_size * cnt_batch_sst) # normalized by observation #
+                
+                # train on para batch(es)
+                if num_batch_para + cnt_batch_para > para_len and para_reset == False:
+                    para_dl = tqdm(para_train_dataloader, desc=f'train-{epoch}', disable=TQDM_DISABLE)
+                    para_iter = iter(para_dl)
+                    para_reset = True
+                for i in range(cnt_batch_para):
+                    batch = next(para_iter)
+                    b_ids_1, b_ids_2, b_mask_1, b_mask_2, b_labels = (batch['token_ids_1'],
+                                        batch['token_ids_2'], batch['attention_mask_1'],
+                                        batch['attention_mask_2'], batch['labels'])
 
-            optimizer.zero_grad()
-            logits = model.predict_similarity(b_ids_1, b_mask_1, b_ids_2, b_mask_2)
-            logits = torch.sigmoid(logits) # sigmoid
-            logits = logits.mul(5) # multiply by five to match labels
-            loss = F.l1_loss(logits.view(-1), b_labels) / args.batch_size # L1 loss
+                    b_ids_1 = b_ids_1.to(device)
+                    b_ids_2 = b_ids_2.to(device)
+                    b_mask_1 = b_mask_1.to(device)
+                    b_mask_2 = b_mask_2.to(device)
+                    b_labels = b_labels.to(device)
 
-            loss.backward()
-            optimizer.step()
+                    optimizer.zero_grad()
+                    logits = model.predict_paraphrase(b_ids_1, b_mask_1, b_ids_2, b_mask_2)
+                    logits = torch.sigmoid(logits) # sigmoid
+                    loss = F.l1_loss(logits.view(-1), b_labels) / (args.batch_size * cnt_batch_para) # L1 loss (normalized by observation #)
+                
+                # train on sts batch(es)
+                if num_batch_sts + cnt_batch_sts > sts_len and sts_reset == False:
+                    sts_dl = tqdm(sts_train_dataloader, desc=f'train-{epoch}', disable=TQDM_DISABLE)
+                    sts_iter = iter(sts_dl)
+                    sts_reset = True
+                for i in range(cnt_batch_sts):
+                    batch = next(sts_iter)
+                    b_ids_1, b_ids_2, b_mask_1, b_mask_2, b_labels = (batch['token_ids_1'],
+                                        batch['token_ids_2'], batch['attention_mask_1'],
+                                        batch['attention_mask_2'], batch['labels'])
 
-            train_loss += loss.item()
-            num_batches += 1
+                    b_ids_1 = b_ids_1.to(device)
+                    b_ids_2 = b_ids_2.to(device)
+                    b_mask_1 = b_mask_1.to(device)
+                    b_mask_2 = b_mask_2.to(device)
+                    b_labels = b_labels.to(device)
 
+                    optimizer.zero_grad()
+                    logits = model.predict_similarity(b_ids_1, b_mask_1, b_ids_2, b_mask_2)
+                    logits = torch.sigmoid(logits) # sigmoid
+                    logits = logits.mul(5) # multiply by five to match labels
+                    loss = F.l1_loss(logits.view(-1), b_labels) / (args.batch_size * cnt_batch_sts) # L1 loss (normalized by observation #)
+                
+                # step
+                loss.backward()
+                optimizer.step()
+
+                train_loss += loss.item()
+                num_batches += 1
+                print('iteration', iteration)
+
+        else:
+            raise ValueError
 
         train_loss = train_loss / (num_batches)
 
@@ -371,12 +482,14 @@ def get_args():
     parser.add_argument("--lr", type=float, help="learning rate, default lr for 'pretrain': 1e-3, 'finetune': 1e-5",
                         default=1e-5)
     
-    # training results filename
+    # training results by epoch filename
     parser.add_argument("--epoch_results_filename", help='name for training results by epoch excel file', type=str, default = '')
     # share layers
     parser.add_argument("--share_layers", help = 'share layers between para and sts', action='store_true')
     # cut down on para training
     parser.add_argument("--para_training_cut", help = 'cut down on para training', action='store_true')
+    # multitask training switch
+    parser.add_argument("--training_method", help = 'single-task or multi-task, default is single', default='single')
 
     args = parser.parse_args()
     return args

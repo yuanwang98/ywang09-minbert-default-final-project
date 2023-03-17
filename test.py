@@ -10,6 +10,10 @@ from tqdm import tqdm
 
 print('testing testing')
 
+# iter
+x = iter([1,2,3])
+print(next(x))
+
 # test tqdm
 '''
 data_loader = range(100)
