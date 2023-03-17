@@ -354,7 +354,8 @@ def train_multitask(args):
                     optimizer.zero_grad()
                     logits = model.predict_sentiment(b_ids, b_mask)
                     loss += F.cross_entropy(logits, b_labels.view(-1), reduction='sum') / (args.batch_size * cnt_batch_sst) # normalized by observation #
-                
+                num_batch_sst += cnt_batch_sst
+
                 # train on para batch(es)
                 if num_batch_para + cnt_batch_para > para_len and para_reset == False:
                     para_dl = tqdm(para_train_dataloader, desc=f'train-{epoch}', disable=TQDM_DISABLE)
@@ -377,6 +378,7 @@ def train_multitask(args):
                     logits = model.predict_paraphrase(b_ids_1, b_mask_1, b_ids_2, b_mask_2)
                     logits = torch.sigmoid(logits) # sigmoid
                     loss = F.l1_loss(logits.view(-1), b_labels) / (args.batch_size * cnt_batch_para) # L1 loss (normalized by observation #)
+                num_batch_para += cnt_batch_para
                 
                 # train on sts batch(es)
                 if num_batch_sts + cnt_batch_sts > sts_len and sts_reset == False:
@@ -401,7 +403,8 @@ def train_multitask(args):
                     logits = torch.sigmoid(logits) # sigmoid
                     logits = logits.mul(5) # multiply by five to match labels
                     loss = F.l1_loss(logits.view(-1), b_labels) / (args.batch_size * cnt_batch_sts) # L1 loss (normalized by observation #)
-                
+                num_batch_sts += cnt_batch_sts
+
                 # step
                 loss.backward()
                 optimizer.step()
