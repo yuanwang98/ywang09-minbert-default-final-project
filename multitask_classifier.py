@@ -297,7 +297,7 @@ def train_multitask(args):
                 train_loss += loss.item()
                 num_batches += 1
         
-        elif args.training_method == "multi":
+        elif args.training_method in ["multi", 'multi_balanced']:
             # cnt_iter: number of iterations, set equal to the batch number of the smallest dataset
             # cnt_batch_*: the number of batches to train in each iteration for each dataset \
             # taking the ceiling as batch number for the larger datasets, they will need to be 
@@ -354,7 +354,10 @@ def train_multitask(args):
 
                     optimizer.zero_grad()
                     logits = model.predict_sentiment(b_ids, b_mask)
-                    loss += F.cross_entropy(logits, b_labels.view(-1), reduction='sum') / (args.batch_size * cnt_batch_sst) # normalized by observation #
+                    if args.training_method == 'multi_balanced': # normalize by observation count
+                        loss += F.cross_entropy(logits, b_labels.view(-1), reduction='sum') / (args.batch_size * cnt_batch_sst)
+                    else:
+                        loss += F.cross_entropy(logits, b_labels.view(-1), reduction='sum') / args.batch_size
                 num_batch_sst += cnt_batch_sst
 
                 # train on para batch(es)
@@ -378,7 +381,10 @@ def train_multitask(args):
                     optimizer.zero_grad()
                     logits = model.predict_paraphrase(b_ids_1, b_mask_1, b_ids_2, b_mask_2)
                     logits = torch.sigmoid(logits) # sigmoid
-                    loss += F.l1_loss(logits.view(-1), b_labels) / (args.batch_size * cnt_batch_para) # L1 loss (normalized by observation #)
+                    if args.training_method == 'multi_balanced': # normalize by observation count
+                        loss += F.l1_loss(logits.view(-1), b_labels) / (args.batch_size * cnt_batch_para) # L1 loss
+                    else:
+                        loss += F.l1_loss(logits.view(-1), b_labels) / args.batch_size
                 num_batch_para += cnt_batch_para
                 
                 # train on sts batch(es)
@@ -403,7 +409,10 @@ def train_multitask(args):
                     logits = model.predict_similarity(b_ids_1, b_mask_1, b_ids_2, b_mask_2)
                     logits = torch.sigmoid(logits) # sigmoid
                     logits = logits.mul(5) # multiply by five to match labels
-                    loss += F.l1_loss(logits.view(-1), b_labels) / (args.batch_size * cnt_batch_sts) # L1 loss (normalized by observation #)
+                    if args.training_method == 'multi_balanced': # normalize by observation count
+                        loss += F.l1_loss(logits.view(-1), b_labels) / (args.batch_size * cnt_batch_sts) # L1 loss
+                    else:
+                        loss += F.l1_loss(logits.view(-1), b_labels) / args.batch_size
                 num_batch_sts += cnt_batch_sts
 
                 # step
@@ -495,7 +504,7 @@ def get_args():
     # cut down on para training
     parser.add_argument("--para_training_cut", help = 'cut down on para training', action='store_true')
     # multitask training switch
-    parser.add_argument("--training_method", help = 'single-task or multi-task, default is single', default='single')
+    parser.add_argument("--training_method", help = 'single-task (single) or multi-task (multi, multi_balanced), default is single', default='single')
 
     args = parser.parse_args()
     return args
