@@ -341,6 +341,7 @@ def train_multitask(args):
                     sst_dl = tqdm(sst_train_dataloader, desc=f'train-{epoch}', disable=TQDM_DISABLE)
                     sst_iter = iter(sst_dl)
                     sst_reset = True
+                    print('NOTE: sst reset')
                 for i in range(cnt_batch_sst):
                     batch = next(sst_iter)
                     b_ids, b_mask, b_labels = (batch['token_ids'],
@@ -359,6 +360,7 @@ def train_multitask(args):
                     para_dl = tqdm(para_train_dataloader, desc=f'train-{epoch}', disable=TQDM_DISABLE)
                     para_iter = iter(para_dl)
                     para_reset = True
+                    print('NOTE: para reset')
                 for i in range(cnt_batch_para):
                     batch = next(para_iter)
                     b_ids_1, b_ids_2, b_mask_1, b_mask_2, b_labels = (batch['token_ids_1'],
@@ -381,6 +383,7 @@ def train_multitask(args):
                     sts_dl = tqdm(sts_train_dataloader, desc=f'train-{epoch}', disable=TQDM_DISABLE)
                     sts_iter = iter(sts_dl)
                     sts_reset = True
+                    print('NOTE: sts reset')
                 for i in range(cnt_batch_sts):
                     batch = next(sts_iter)
                     b_ids_1, b_ids_2, b_mask_1, b_mask_2, b_labels = (batch['token_ids_1'],
@@ -405,7 +408,6 @@ def train_multitask(args):
 
                 train_loss += loss.item()
                 num_batches += 1
-                print('iteration', iteration)
 
         else:
             raise ValueError
