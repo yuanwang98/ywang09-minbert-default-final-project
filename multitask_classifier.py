@@ -467,7 +467,7 @@ def train_multitask(args):
         lr = args.lr_additional
         optimizer = AdamW(model.parameters(), lr=lr)
 
-        for param in self.bert.parameters():
+        for param in model.bert.parameters():
             param.requires_grad = False
         
         for epoch in range(args.additional_epoch):
