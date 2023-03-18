@@ -216,7 +216,7 @@ def train_multitask(args):
 
     lr = args.lr
     optimizer = AdamW(model.parameters(), lr=lr)
-    if args.gradient:
+    if args.gradient_surgery:
         optimizer = PCGrad(optimizer)
     best_dev_acc = 0
 
