@@ -10,9 +10,16 @@ from tqdm import tqdm
 
 print('testing testing')
 
+# % operator
+print(3 % 3)
+print(4 % 3)
+print(5 % 3)
+
 # iter
+'''
 x = iter([1,2,3])
 print(next(x))
+'''
 
 # test tqdm
 '''
