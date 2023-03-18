@@ -17,6 +17,7 @@ from evaluation import model_eval_sst, test_model_multitask, model_eval_multitas
 
 import pandas as pd
 import math
+from pcgrad import PCGrad
 
 
 TQDM_DISABLE=True
@@ -336,6 +337,9 @@ def train_multitask(args):
 
             for iteration in range(cnt_iter):
                 loss = 0
+                loss_sst = 0
+                loss_para = 0
+                loss_sts = 0
 
                 # train on sst batch(es)
                 if num_batch_sst + cnt_batch_sst > sst_len and sst_reset == False:
@@ -355,9 +359,11 @@ def train_multitask(args):
                     optimizer.zero_grad()
                     logits = model.predict_sentiment(b_ids, b_mask)
                     if args.training_method == 'multi_balanced': # normalize by observation count
-                        loss += F.cross_entropy(logits, b_labels.view(-1), reduction='sum') / (args.batch_size * cnt_batch_sst)
+                        loss_sst = F.cross_entropy(logits, b_labels.view(-1), reduction='sum') / (args.batch_size * cnt_batch_sst)
+                        loss += loss_sst
                     else:
-                        loss += F.cross_entropy(logits, b_labels.view(-1), reduction='sum') / args.batch_size
+                        loss_sst = F.cross_entropy(logits, b_labels.view(-1), reduction='sum') / args.batch_size
+                        loss += loss_sst
                 num_batch_sst += cnt_batch_sst
 
                 # train on para batch(es)
@@ -382,9 +388,11 @@ def train_multitask(args):
                     logits = model.predict_paraphrase(b_ids_1, b_mask_1, b_ids_2, b_mask_2)
                     logits = torch.sigmoid(logits) # sigmoid
                     if args.training_method == 'multi_balanced': # normalize by observation count
-                        loss += F.l1_loss(logits.view(-1), b_labels) / (args.batch_size * cnt_batch_para) # L1 loss
+                        loss_para = F.l1_loss(logits.view(-1), b_labels) / (args.batch_size * cnt_batch_para) # L1 loss
+                        loss += loss_para
                     else:
-                        loss += F.l1_loss(logits.view(-1), b_labels) / args.batch_size
+                        loss_para = F.l1_loss(logits.view(-1), b_labels) / args.batch_size
+                        loss += loss_para
                 num_batch_para += cnt_batch_para
                 
                 # train on sts batch(es)
@@ -410,19 +418,28 @@ def train_multitask(args):
                     logits = torch.sigmoid(logits) # sigmoid
                     logits = logits.mul(5) # multiply by five to match labels
                     if args.training_method == 'multi_balanced': # normalize by observation count
-                        loss += F.l1_loss(logits.view(-1), b_labels) / (args.batch_size * cnt_batch_sts) # L1 loss
+                        loss_sts = F.l1_loss(logits.view(-1), b_labels) / (args.batch_size * cnt_batch_sts) # L1 loss
+                        loss += loss_sts
                     else:
-                        loss += F.l1_loss(logits.view(-1), b_labels) / args.batch_size
+                        loss_sts = F.l1_loss(logits.view(-1), b_labels) / args.batch_size
+                        loss += loss_sts
                 num_batch_sts += cnt_batch_sts
 
                 # step
-                loss.backward()
-                optimizer.step()
+                if args.gradient_surgery:
+                    optimizer = PCGrad(optimizer)
+                    losses = [loss_sst, loss_para, loss_sts]
+                    optimizer.pc_backward(losses) # calculate the gradient
+                    optimizer.step()  # apply gradient step
+                else:
+                    loss.backward()
+                    optimizer.step()
 
                 train_loss += loss.item()
                 num_batches += 1
 
         else:
+            print('ERROR: invalid parameter value for --training_method')
             raise ValueError
 
         train_loss = train_loss / (num_batches)
@@ -441,7 +458,112 @@ def train_multitask(args):
                         'train_acc_sts' : train_acc_sts, 'train_acc' : train_acc, 'dev_acc_sst' : dev_acc_sst,\
                             'dev_acc_para' : dev_acc_para, 'dev_acc_sts' : dev_acc_sts, 'dev_acc' : dev_acc}, ignore_index = True)
 
-    
+    # Additional training
+    if args.option == 'finetune' and args.additional_pretrain and args.additional_epoch > 0:
+        print('Note: running additional training with Bert parameters fixed...')
+
+        # create new optimizer with new learning rate
+        lr = args.lr_additional
+        optimizer = AdamW(model.parameters(), lr=lr)
+
+        for param in self.bert.parameters():
+            param.requires_grad = False
+        
+        for epoch in range(args.additional_epoch):
+            model.train()
+            train_loss = 0
+            num_batches = 0
+
+            # COPIED FROM "single" above, room for code improvement
+            # sst training
+            for batch in tqdm(sst_train_dataloader, desc=f'train-{epoch}', disable=TQDM_DISABLE):
+                b_ids, b_mask, b_labels = (batch['token_ids'],
+                                        batch['attention_mask'], batch['labels'])
+
+                b_ids = b_ids.to(device)
+                b_mask = b_mask.to(device)
+                b_labels = b_labels.to(device)
+
+                optimizer.zero_grad()
+                logits = model.predict_sentiment(b_ids, b_mask)
+                loss = F.cross_entropy(logits, b_labels.view(-1), reduction='sum') / args.batch_size
+
+                loss.backward()
+                optimizer.step()
+
+                train_loss += loss.item()
+                num_batches += 1
+            
+            # para training
+            num_batches = 0
+            for batch in tqdm(para_train_dataloader, desc=f'train-{epoch}', disable=TQDM_DISABLE):
+                b_ids_1, b_ids_2, b_mask_1, b_mask_2, b_labels = (batch['token_ids_1'],
+                                        batch['token_ids_2'], batch['attention_mask_1'],
+                                        batch['attention_mask_2'], batch['labels'])
+
+                b_ids_1 = b_ids_1.to(device)
+                b_ids_2 = b_ids_2.to(device)
+                b_mask_1 = b_mask_1.to(device)
+                b_mask_2 = b_mask_2.to(device)
+                b_labels = b_labels.to(device)
+
+                optimizer.zero_grad()
+                logits = model.predict_paraphrase(b_ids_1, b_mask_1, b_ids_2, b_mask_2)
+                logits = torch.sigmoid(logits) # sigmoid
+                loss = F.l1_loss(logits.view(-1), b_labels) / args.batch_size # L1 loss
+
+                loss.backward()
+                optimizer.step()
+
+                train_loss += loss.item()
+                num_batches += 1
+
+                # temporary, for experimentation (train on about 8000 data points)
+                if args.para_training_cut & num_batches * args.batch_size > 8000:
+                    print('NOTE: para training cut.')
+                    break
+                            
+            # sts training
+            num_batches = 0
+            for batch in tqdm(sts_train_dataloader, desc=f'train-{epoch}', disable=TQDM_DISABLE):
+                b_ids_1, b_ids_2, b_mask_1, b_mask_2, b_labels = (batch['token_ids_1'],
+                                        batch['token_ids_2'], batch['attention_mask_1'],
+                                        batch['attention_mask_2'], batch['labels'])
+
+                b_ids_1 = b_ids_1.to(device)
+                b_ids_2 = b_ids_2.to(device)
+                b_mask_1 = b_mask_1.to(device)
+                b_mask_2 = b_mask_2.to(device)
+                b_labels = b_labels.to(device)
+
+                optimizer.zero_grad()
+                logits = model.predict_similarity(b_ids_1, b_mask_1, b_ids_2, b_mask_2)
+                logits = torch.sigmoid(logits) # sigmoid
+                logits = logits.mul(5) # multiply by five to match labels
+                loss = F.l1_loss(logits.view(-1), b_labels) / args.batch_size # L1 loss
+
+                loss.backward()
+                optimizer.step()
+
+                train_loss += loss.item()
+                num_batches += 1
+
+        train_loss = train_loss / (num_batches)
+
+        train_acc_para, _, _, train_acc_sst, _, _, train_acc_sts, *_ = model_eval_multitask(sst_train_dataloader, para_train_dataloader, sts_train_dataloader, model, device)
+        dev_acc_para, _, _, dev_acc_sst, _, _, dev_acc_sts, *_ = model_eval_multitask(sst_dev_dataloader, para_dev_dataloader, sts_dev_dataloader, model, device)
+
+        train_acc = np.average([train_acc_sst, train_acc_para, train_acc_sts])
+        dev_acc = np.average([dev_acc_sst, dev_acc_para, dev_acc_sts])
+        if dev_acc > best_dev_acc:
+            best_dev_acc = dev_acc
+            save_model(model, optimizer, args, config, args.filepath)
+
+        print(f"Epoch {epoch}: train loss :: {train_loss :.3f}, train acc :: {train_acc :.3f}, dev acc :: {dev_acc :.3f}")
+        df = df.append({'epoch' : epoch, 'train_acc_sst' :train_acc_sst, 'train_acc_para' : train_acc_para,\
+                        'train_acc_sts' : train_acc_sts, 'train_acc' : train_acc, 'dev_acc_sst' : dev_acc_sst,\
+                            'dev_acc_para' : dev_acc_para, 'dev_acc_sts' : dev_acc_sts, 'dev_acc' : dev_acc}, ignore_index = True)
+
     filename = f"training_results_by_epoch_{args.epoch_results_filename}.xlsx"
     df.to_excel(filename)
 
@@ -504,7 +626,15 @@ def get_args():
     # cut down on para training
     parser.add_argument("--para_training_cut", help = 'cut down on para training', action='store_true')
     # multitask training switch
-    parser.add_argument("--training_method", help = 'single-task (single) or multi-task (multi, multi_balanced), default is single', default='single')
+    parser.add_argument("--training_method", help = 'single-task (single) or multi-task (multi, multi_balanced)', default='single')
+    # gradient surgery switch
+    parser.add_argument("--gradient_surgery", help = 'apply gradient surgery for multitask training', action='store_true')
+    # additional pretrain
+    parser.add_argument("--additional_pretrain", help = 'additional training with Bert parameters locked', action='store_true')
+    # additional pretrain epoch
+    parser.add_argument("--additional_epoch", help='number of epochs to run additional pre-training for', type=int, default=0)
+    # additional pretrain learning rate
+    parser.add_argument("--lr_additional", help='learning rate for additional pre-training', type=float, default=1e-3)
 
     args = parser.parse_args()
     return args
