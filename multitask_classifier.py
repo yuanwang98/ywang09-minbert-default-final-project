@@ -631,7 +631,7 @@ def get_args():
     parser.add_argument("--gradient_surgery", help = 'apply gradient surgery for multitask training', action='store_true')
     # additional pretrain
     parser.add_argument("--additional_pretrain", help = 'additional training with Bert parameters locked', action='store_true')
-    # additional pretrain epoch
+    # number of additional pretrain epochs
     parser.add_argument("--additional_epoch", help='number of epochs to run additional pre-training for', type=int, default=0)
     # additional pretrain learning rate
     parser.add_argument("--lr_additional", help='learning rate for additional pre-training', type=float, default=1e-3)
