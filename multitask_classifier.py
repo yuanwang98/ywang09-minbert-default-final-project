@@ -427,10 +427,11 @@ def train_multitask(args):
 
                 # step
                 if args.gradient_surgery:
-                    optimizer = PCGrad(optimizer)
+                    pcg = PCGrad(optimizer)
                     losses = [loss_sst, loss_para, loss_sts]
-                    optimizer.pc_backward(losses) # calculate the gradient
-                    optimizer.step()  # apply gradient step
+                    pcg.pc_backward(losses) # calculate the gradient
+                    pcg.step()  # apply gradient step
+                    optimizer = pcg._optim
                 else:
                     loss.backward()
                     optimizer.step()
