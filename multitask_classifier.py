@@ -549,19 +549,19 @@ def train_multitask(args):
                 train_loss += loss.item()
                 num_batches += 1
 
-        train_loss = train_loss / (num_batches)
+            train_loss = train_loss / (num_batches)
 
-        train_acc_para, _, _, train_acc_sst, _, _, train_acc_sts, *_ = model_eval_multitask(sst_train_dataloader, para_train_dataloader, sts_train_dataloader, model, device)
-        dev_acc_para, _, _, dev_acc_sst, _, _, dev_acc_sts, *_ = model_eval_multitask(sst_dev_dataloader, para_dev_dataloader, sts_dev_dataloader, model, device)
+            train_acc_para, _, _, train_acc_sst, _, _, train_acc_sts, *_ = model_eval_multitask(sst_train_dataloader, para_train_dataloader, sts_train_dataloader, model, device)
+            dev_acc_para, _, _, dev_acc_sst, _, _, dev_acc_sts, *_ = model_eval_multitask(sst_dev_dataloader, para_dev_dataloader, sts_dev_dataloader, model, device)
 
-        train_acc = np.average([train_acc_sst, train_acc_para, train_acc_sts])
-        dev_acc = np.average([dev_acc_sst, dev_acc_para, dev_acc_sts])
-        if dev_acc > best_dev_acc:
-            best_dev_acc = dev_acc
-            save_model(model, optimizer, args, config, args.filepath)
+            train_acc = np.average([train_acc_sst, train_acc_para, train_acc_sts])
+            dev_acc = np.average([dev_acc_sst, dev_acc_para, dev_acc_sts])
+            if dev_acc > best_dev_acc:
+                best_dev_acc = dev_acc
+                save_model(model, optimizer, args, config, args.filepath)
 
-        print(f"Epoch {epoch}: train loss :: {train_loss :.3f}, train acc :: {train_acc :.3f}, dev acc :: {dev_acc :.3f}")
-        df = df.append({'epoch' : epoch, 'train_acc_sst' :train_acc_sst, 'train_acc_para' : train_acc_para,\
+            print(f"Epoch {epoch}: train loss :: {train_loss :.3f}, train acc :: {train_acc :.3f}, dev acc :: {dev_acc :.3f}")
+            df = df.append({'epoch' : epoch, 'train_acc_sst' :train_acc_sst, 'train_acc_para' : train_acc_para,\
                         'train_acc_sts' : train_acc_sts, 'train_acc' : train_acc, 'dev_acc_sst' : dev_acc_sst,\
                             'dev_acc_para' : dev_acc_para, 'dev_acc_sts' : dev_acc_sts, 'dev_acc' : dev_acc}, ignore_index = True)
 
