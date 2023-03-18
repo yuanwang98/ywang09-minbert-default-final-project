@@ -216,6 +216,8 @@ def train_multitask(args):
 
     lr = args.lr
     optimizer = AdamW(model.parameters(), lr=lr)
+    if args.gradient:
+        optimizer = PCGrad(optimizer)
     best_dev_acc = 0
 
     # Run for the specified number of epochs
@@ -427,11 +429,9 @@ def train_multitask(args):
 
                 # step
                 if args.gradient_surgery:
-                    pcg = PCGrad(optimizer)
                     losses = [loss_sst, loss_para, loss_sts]
-                    pcg.pc_backward(losses) # calculate the gradient
-                    pcg.step()  # apply gradient step
-                    optimizer = pcg._optim
+                    optimizer.pc_backward(losses) # calculate the gradient
+                    optimizer.step()  # apply gradient step
                 else:
                     loss.backward()
                     optimizer.step()
@@ -452,7 +452,11 @@ def train_multitask(args):
         dev_acc = np.average([dev_acc_sst, dev_acc_para, dev_acc_sts])
         if dev_acc > best_dev_acc:
             best_dev_acc = dev_acc
-            save_model(model, optimizer, args, config, args.filepath)
+            if args.gradient_surgery: # added
+                optim = optimizer._optim
+            else:
+                optim = optimizer
+            save_model(model, optim, args, config, args.filepath) # edited: changed optimizer to optim
 
         print(f"Epoch {epoch}: train loss :: {train_loss :.3f}, train acc :: {train_acc :.3f}, dev acc :: {dev_acc :.3f}")
         df = df.append({'epoch' : epoch, 'train_acc_sst' :train_acc_sst, 'train_acc_para' : train_acc_para,\
