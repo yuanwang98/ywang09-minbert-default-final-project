@@ -11,7 +11,7 @@ import random
 class PCGrad():
     def __init__(self, optimizer, reduction='mean'):
         self._optim, self._reduction = optimizer, reduction
-        self.param_groups = optimizer.param_groups # added
+        # self.param_groups = optimizer.param_groups # added
         return
 
     @property
