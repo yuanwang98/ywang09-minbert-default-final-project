@@ -451,7 +451,7 @@ def train_multitask(args):
         print('NOTE: running additional training with Bert parameters fixed...')
 
         # load current best model
-        model.load_state_dict(torch.load(args.filepath))
+        model.load_state_dict(torch.load(args.filepath)['model'])
         print(f'loaded current best model from {args.filepath}')
 
         # create new optimizer with new learning rate
