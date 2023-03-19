@@ -450,6 +450,10 @@ def train_multitask(args):
     if args.option == 'finetune' and args.additional_pretrain and args.additional_epoch > 0:
         print('NOTE: running additional training with Bert parameters fixed...')
 
+        # load current best model
+        model.load_state_dict(torch.load(args.filepath))
+        print(f'loaded current best model from {args.filepath}')
+
         # create new optimizer with new learning rate
         lr = args.lr_additional
         optimizer = AdamW(model.parameters(), lr=lr)
