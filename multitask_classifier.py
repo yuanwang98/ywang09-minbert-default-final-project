@@ -81,7 +81,7 @@ class MultitaskBERT(nn.Module):
         # When thinking of improvements, you can later try modifying this
         # (e.g., by adding other layers).
         ### TODO
-        outputs = self.bert(input_ids, attention_mask)  # potentially perform dropout on input_ids
+        outputs = self.bert(input_ids, attention_mask)
         pooler_output = outputs['pooler_output']
 
         return pooler_output
@@ -115,7 +115,7 @@ class MultitaskBERT(nn.Module):
         output_2 = self.paraphrase_dropout_2(output_2)
         output_1 = self.paraphrase_linear_1(output_1)
         output_2 = self.paraphrase_linear_2(output_2)
-        output = torch.mul(output_1, output_2) # want to update this to torch.mul(output_1, output_2), and drop the next row
+        output = torch.mul(output_1, output_2)
         paraphrase_logit = self.paraphrase_linear_interact(output)
         
         return paraphrase_logit
@@ -448,7 +448,7 @@ def train_multitask(args):
 
     # Additional training
     if args.option == 'finetune' and args.additional_pretrain and args.additional_epoch > 0:
-        print('Note: running additional training with Bert parameters fixed...')
+        print('NOTE: running additional training with Bert parameters fixed...')
 
         # create new optimizer with new learning rate
         lr = args.lr_additional
@@ -465,6 +465,7 @@ def train_multitask(args):
             # MODIFIED FROM "single" above; in each epoch, train on just one dataset and update parameters if there is improvement
             if epoch % 3 == 0:
                 # sst training
+                print('NOTE: training on sst data')
                 for batch in tqdm(sst_train_dataloader, desc=f'train-{epoch}', disable=TQDM_DISABLE):
                     b_ids, b_mask, b_labels = (batch['token_ids'],
                                             batch['attention_mask'], batch['labels'])
@@ -483,8 +484,9 @@ def train_multitask(args):
                     train_loss += loss.item()
                     num_batches += 1
             
-            elif epoch % 3 == 0:
+            elif epoch % 3 == 1:
                 # para training
+                print('NOTE: training on para data')
                 num_batches = 0
                 for batch in tqdm(para_train_dataloader, desc=f'train-{epoch}', disable=TQDM_DISABLE):
                     b_ids_1, b_ids_2, b_mask_1, b_mask_2, b_labels = (batch['token_ids_1'],
@@ -515,6 +517,7 @@ def train_multitask(args):
 
             else:
                 # sts training
+                print('NOTE: training on sts data')
                 num_batches = 0
                 for batch in tqdm(sts_train_dataloader, desc=f'train-{epoch}', disable=TQDM_DISABLE):
                     b_ids_1, b_ids_2, b_mask_1, b_mask_2, b_labels = (batch['token_ids_1'],
