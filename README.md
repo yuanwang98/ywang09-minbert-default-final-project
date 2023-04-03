@@ -2,7 +2,7 @@
 
 The files in this project are originally from Stanford CS 224N's starter repository: https://github.com/gpoesia/minbert-default-final-project. The code files are edited to complete this project. The most critical edits are in the the following two files: multitask_classifier.py and construct_datasets.py.
 
-The final project poster and final report could be found in the repository.
+The final project poster and final report could be found in the /Results folder.
 
 ### Acknowledgement (copied from https://github.com/gpoesia/minbert-default-final-project)
 
